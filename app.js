@@ -2,7 +2,6 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const WEEKDAYS = ['一','二','三','四','五','六','日']; // Mon..Sun
-const DRAFT_KEY = 'report-builder:draft';
 
 let vocab = null;
 
@@ -203,11 +202,6 @@ function initToolbar() {
     } catch { alert('複製失敗，請手動選取'); }
   });
 
-  $('#download-txt-btn').addEventListener('click', () => {
-    const data = gather();
-    download(`${data.date || 'report'}.txt`, $('#preview').textContent);
-  });
-
   $('#download-json-btn').addEventListener('click', () => {
     const data = gather();
     const payload = {
@@ -220,15 +214,6 @@ function initToolbar() {
     download(`${data.date || 'report'}.json`, JSON.stringify(payload, null, 2));
   });
 
-  $('#save-draft-btn').addEventListener('click', () => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(gather()));
-    flash('#save-draft-btn', '✓ 草稿已存');
-  });
-  $('#load-draft-btn').addEventListener('click', () => {
-    const s = localStorage.getItem(DRAFT_KEY);
-    if (!s) return alert('沒有找到草稿。');
-    loadFrom(JSON.parse(s));
-  });
   $('#reset-btn').addEventListener('click', () => {
     if (!confirm('確定清空所有欄位？')) return;
     $('#sections').innerHTML = '';
