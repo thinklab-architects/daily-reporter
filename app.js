@@ -269,5 +269,219 @@ function flash(sel, msg) {
   setTimeout(() => { el.textContent = orig; }, 1500);
 }
 
+// ─── GitHub sync ───
+const CFG_KEY = 'report-builder:github-cfg';
+const DEFAULT_CFG = { repo: 'thinklab-architects/daily-reporter', branch: 'main', path: 'data.json', token: '' };
+
+function getCfg() {
+  const saved = localStorage.getItem(CFG_KEY);
+  return { ...DEFAULT_CFG, ...(saved ? JSON.parse(saved) : {}) };
+}
+function setCfg(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+
+// Read current cfg into modal inputs
+function loadCfgIntoModal() {
+  const c = getCfg();
+  $('#cfg-repo').value = c.repo;
+  $('#cfg-branch').value = c.branch;
+  $('#cfg-path').value = c.path;
+  $('#cfg-token').value = c.token;
+}
+function readCfgFromModal() {
+  return {
+    repo: $('#cfg-repo').value.trim() || DEFAULT_CFG.repo,
+    branch: $('#cfg-branch').value.trim() || DEFAULT_CFG.branch,
+    path: $('#cfg-path').value.trim() || DEFAULT_CFG.path,
+    token: $('#cfg-token').value.trim(),
+  };
+}
+
+// Classify trade kind (mirror of Python classify_kind in parse_structure.py)
+function classifyKind(category) {
+  if (!category) return 'other';
+  const c = category;
+  if (/師傅|操作手|司機|粗工|駕駛|人員/.test(c) || c === '人工' || /工$/.test(c)) return 'labor';
+  if (/怪手|卡車|水車|壓送車|吊車|吊卡車|發電機|鑽孔機|灌漿組|機組|幫浦車|泵浦|全吊車|小怪手|挖土機|250|200|120/.test(c)) return 'equipment';
+  if (/混凝土|kg\/cm2|280kg|140kg|210kg|水泥|紅磚|磁磚|丁掛|黏著劑|進磚|進料|化糞池/.test(c)) return 'material';
+  return 'other';
+}
+
+// Build a structured entry matching data.json schema from the form.
+function buildStructuredEntry(nextId) {
+  const d = gather();
+  const date = d.date;                       // YYYY-MM-DD
+  const dateDisp = `${d.date}（${d.weekday}）`;
+  const raw_text = formatReport(d);
+  const sections = d.sections.map((s, si) => ({
+    seq: si,
+    area: s.area || null,
+    topic: s.topic || null,
+    header_raw: `♦️${s.area || ''}${s.topic || ''}`,
+    items: s.items.map((it, ii) => ({
+      category: it.category,
+      count: Number(it.count),
+      unit: it.unit || null,
+      location: null,
+      detail: it.detail || null,
+      kind: it.kind || classifyKind(it.category),
+      raw: `🔹${it.category}*${it.count}${it.unit || ''}${it.detail ? `（${it.detail}）` : ''}`,
+      seq: ii,
+    })),
+  }));
+  return {
+    report_id: nextId,
+    date, date_end: null,
+    reporter: d.reporter, weather: d.weather,
+    raw_text,
+    sections,
+    notes: d.notes,
+  };
+}
+
+// Validate before submission
+function validateForSubmit() {
+  const d = gather();
+  if (!d.date) return '請選擇日期';
+  if (!d.reporter) return '請選擇回報者';
+  if (!d.sections.length) return '請至少新增一個區段';
+  for (const s of d.sections) {
+    if (!s.items.length && !s.topic) return '每個區段請填工項描述或至少一筆工項';
+  }
+  return null;
+}
+
+// ─── GitHub API helpers ───
+async function ghGet(cfg) {
+  const url = `https://api.github.com/repos/${cfg.repo}/contents/${cfg.path}?ref=${cfg.branch}`;
+  const r = await fetch(url, {
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${cfg.token}`,
+    },
+  });
+  if (!r.ok) throw new Error(`GET failed: ${r.status} ${r.statusText}`);
+  return r.json();                          // { content, sha, encoding, ... }
+}
+async function ghPut(cfg, contentB64, sha, message) {
+  const url = `https://api.github.com/repos/${cfg.repo}/contents/${cfg.path}`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${cfg.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message, content: contentB64, sha, branch: cfg.branch,
+    }),
+  });
+  if (!r.ok) throw new Error(`PUT failed: ${r.status} ${r.statusText} ${await r.text()}`);
+  return r.json();
+}
+
+// base64 encode UTF-8 string (btoa is Latin-1 only, so we encode first)
+function utf8ToB64(s) {
+  const bytes = new TextEncoder().encode(s);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+function b64ToUtf8(b) {
+  const binary = atob(b.replace(/\s/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+async function testConnection() {
+  const cfg = readCfgFromModal();
+  if (!cfg.token) return setCfgStatus('請先填入 Token', 'error');
+  setCfgStatus('測試中…');
+  try {
+    const file = await ghGet(cfg);
+    const txt = b64ToUtf8(file.content);
+    const arr = JSON.parse(txt);
+    if (!Array.isArray(arr)) throw new Error('遠端檔案不是 JSON 陣列');
+    setCfgStatus(`✓ 連線成功，遠端有 ${arr.length} 筆資料。`, 'ok');
+  } catch (e) {
+    setCfgStatus(`✗ ${e.message}`, 'error');
+  }
+}
+
+function setCfgStatus(msg, type = '') {
+  const el = $('#cfg-status');
+  el.textContent = msg;
+  el.className = 'hint ' + type;
+}
+function setSyncStatus(msg, type = '') {
+  const el = $('#sync-status');
+  el.textContent = msg;
+  el.className = 'hint ' + type;
+}
+
+async function submitToGitHub() {
+  const err = validateForSubmit();
+  if (err) return setSyncStatus('✗ ' + err, 'error');
+  const cfg = getCfg();
+  if (!cfg.token) {
+    setSyncStatus('✗ 尚未設定 GitHub Token', 'error');
+    openSettings();
+    return;
+  }
+  if (!confirm('確定要送出此日報到 GitHub？\n遠端 data.json 會追加一筆新紀錄。')) return;
+  setSyncStatus('送出中…正在抓取遠端最新版本');
+  try {
+    const file = await ghGet(cfg);
+    const remote = JSON.parse(b64ToUtf8(file.content));
+    const nextId = remote.length ? Math.max(...remote.map(r => r.report_id ?? -1)) + 1 : 0;
+    const entry = buildStructuredEntry(nextId);
+
+    // Duplicate check: same date + reporter
+    const dup = remote.find(r => r.date === entry.date && r.reporter === entry.reporter);
+    if (dup && !confirm(`警告：${entry.date} 已有 ${entry.reporter} 的日報（#${dup.report_id}）。\n仍要新增為第二筆嗎？`)) {
+      setSyncStatus('已取消', '');
+      return;
+    }
+
+    remote.push(entry);
+    remote.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const newTxt = JSON.stringify(remote, null, 2);
+    setSyncStatus('送出中…正在 commit');
+    const msg = `Add report: ${entry.date} · ${entry.reporter}`;
+    await ghPut(cfg, utf8ToB64(newTxt), file.sha, msg);
+    setSyncStatus(`✓ 已送出（#${entry.report_id}）— 約 30-60 秒後重新部署完成，dashboard 會看到新資料。`, 'ok');
+  } catch (e) {
+    setSyncStatus('✗ ' + e.message, 'error');
+  }
+}
+
+// ─── Settings modal ───
+function openSettings() {
+  loadCfgIntoModal();
+  setCfgStatus('');
+  $('#settings-modal').classList.remove('hidden');
+}
+function closeSettings() { $('#settings-modal').classList.add('hidden'); }
+
+function initGitHubSync() {
+  $('#open-settings').addEventListener('click', openSettings);
+  $('#cfg-close').addEventListener('click', closeSettings);
+  $('#settings-modal').addEventListener('click', e => {
+    if (e.target.id === 'settings-modal') closeSettings();
+  });
+  $('#cfg-save').addEventListener('click', () => {
+    setCfg(readCfgFromModal());
+    setCfgStatus('✓ 已儲存', 'ok');
+  });
+  $('#cfg-test').addEventListener('click', testConnection);
+  $('#cfg-clear').addEventListener('click', () => {
+    if (!confirm('確定清除儲存的 Token？')) return;
+    localStorage.removeItem(CFG_KEY);
+    loadCfgIntoModal();
+    setCfgStatus('已清除', '');
+  });
+  $('#submit-btn').addEventListener('click', submitToGitHub);
+}
+
 // ─── Startup ───
-loadVocab().then(initToolbar);
+loadVocab().then(() => { initToolbar(); initGitHubSync(); });

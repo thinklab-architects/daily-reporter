@@ -36,15 +36,68 @@ header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
 
 .header-nav .nav-btn {
   color: #fff;
-  background: rgba(255,255,255,0.18);
-  padding: 0.55rem 1.1rem;
-  border-radius: 20px;
+  background: rgba(255,255,255,0.16);
+  padding: 1rem 1.75rem;
+  border-radius: 14px;
   text-decoration: none;
-  font-size: 0.95rem;
-  border: 1px solid rgba(255,255,255,0.3);
-  transition: background 0.15s;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 2px solid rgba(255,255,255,0.45);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  transition: transform 0.15s ease, background 0.15s, box-shadow 0.15s;
 }
-.header-nav .nav-btn:hover { background: rgba(255,255,255,0.3); }
+.header-nav .nav-btn .nav-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+.header-nav .nav-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+.header-nav { display: flex; gap: 0.75rem; align-items: center; }
+.header-nav .nav-btn.icon-only {
+  padding: 0.9rem 1.1rem;
+  cursor: pointer;
+}
+.header-nav .nav-btn.icon-only .nav-emoji { font-size: 1.7rem; }
+
+button.primary-cta {
+  background: linear-gradient(135deg, #43b581, #35916a);
+  font-weight: 600;
+}
+button.primary-cta:hover { background: linear-gradient(135deg, #3ca071, #2c7e5a); }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-backdrop.hidden { display: none; }
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  max-width: 560px;
+  width: 92%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.modal h2 { margin-top: 0; border-bottom: 2px solid var(--accent); padding-bottom: 0.4rem; display: inline-block; }
+.modal label { display: block; margin-bottom: 0.75rem; min-width: 0; }
+.modal input[type="text"], .modal input[type="password"] { width: 100%; }
+.modal code { background: #f0f3f9; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.85em; }
+.modal .toolbar { margin-top: 1rem; }
+
+.hint.ok { color: #2d8a5b; font-weight: 500; }
+.hint.error { color: var(--danger); font-weight: 500; }
 
 /* ─── Dashboard ─── */
 body.dashboard main { max-width: 1300px; }

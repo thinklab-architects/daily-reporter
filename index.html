@@ -13,7 +13,13 @@
       <p class="subtitle">選單式輸入，零錯字，輸出標準格式。</p>
     </div>
     <nav class="header-nav">
-      <a href="dashboard.html" class="nav-btn">📊 統計儀表板</a>
+      <a href="dashboard.html" class="nav-btn" title="切換到資料視覺化">
+        <span class="nav-emoji">📊</span>
+        <span>統計儀表板</span>
+      </a>
+      <button id="open-settings" class="nav-btn icon-only" title="GitHub 連線設定">
+        <span class="nav-emoji">⚙️</span>
+      </button>
     </nav>
   </header>
 
@@ -57,6 +63,7 @@
       <h2>輸出預覽</h2>
       <pre id="preview">（請開始填寫上方欄位）</pre>
       <div class="toolbar">
+        <button id="submit-btn" class="primary-cta">☁️ 送出到 GitHub</button>
         <button id="copy-btn">📋 複製到剪貼簿</button>
         <button id="download-json-btn">💾 下載 JSON</button>
         <button id="download-txt-btn">📝 下載 TXT</button>
@@ -64,6 +71,7 @@
         <button id="load-draft-btn">📤 讀取最近草稿</button>
         <button id="reset-btn" class="danger">🗑️ 清空</button>
       </div>
+      <p id="sync-status" class="hint"></p>
       <p class="hint">草稿使用瀏覽器 localStorage，不會上傳到雲端。</p>
     </section>
   </main>
@@ -99,6 +107,40 @@
       <button class="remove-btn" title="刪除">✕</button>
     </div>
   </template>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h2>⚙️ GitHub 連線設定</h2>
+      <p class="hint">
+        送出日報時會直接 commit 到 repo 的 <code>data.json</code>，GitHub Actions 會自動重新部署。<br>
+        Token 只儲存在你的瀏覽器 localStorage，不會上傳到任何伺服器。
+      </p>
+      <label>Owner / Repo
+        <input type="text" id="cfg-repo" placeholder="thinklab-architects/daily-reporter" />
+      </label>
+      <label>Branch
+        <input type="text" id="cfg-branch" placeholder="main" />
+      </label>
+      <label>檔案路徑
+        <input type="text" id="cfg-path" placeholder="data.json" />
+      </label>
+      <label>Personal Access Token
+        <input type="password" id="cfg-token" placeholder="github_pat_..." autocomplete="new-password" />
+      </label>
+      <p class="hint">
+        建議用 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">fine-grained token</a>，
+        權限只給此 repo 的 <code>Contents: Read and Write</code>。
+      </p>
+      <div class="toolbar">
+        <button id="cfg-test">🔍 測試連線</button>
+        <button id="cfg-save" class="primary-cta">💾 儲存設定</button>
+        <button id="cfg-clear" class="danger">🗑️ 清除</button>
+        <button id="cfg-close">關閉</button>
+      </div>
+      <p id="cfg-status" class="hint"></p>
+    </div>
+  </div>
 
   <template id="note-tpl">
     <div class="note-row">
