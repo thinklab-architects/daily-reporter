@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>工程日報產生器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>🏗️ 工程日報產生器</h1>
+    <p class="subtitle">選單式輸入，零錯字，輸出標準格式。</p>
+  </header>
+
+  <main>
+    <section class="panel" id="meta-panel">
+      <h2>日報基本資訊</h2>
+      <div class="row">
+        <label>日期
+          <input type="date" id="date" />
+        </label>
+        <label>星期（自動）
+          <input type="text" id="weekday" readonly />
+        </label>
+        <label>回報者
+          <select id="reporter"></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>天氣
+          <select id="weather"></select>
+        </label>
+        <label class="grow">或自訂
+          <input type="text" id="weather-custom" placeholder="如 ☀️🌧️" />
+        </label>
+      </div>
+    </section>
+
+    <section class="panel" id="sections-panel">
+      <h2>工作區段（♦️）</h2>
+      <div id="sections"></div>
+      <button class="add-btn" id="add-section">+ 新增區段</button>
+    </section>
+
+    <section class="panel">
+      <h2>備註（💢）</h2>
+      <div id="notes"></div>
+      <button class="add-btn" id="add-note">+ 新增備註</button>
+    </section>
+
+    <section class="panel" id="output-panel">
+      <h2>輸出預覽</h2>
+      <pre id="preview">（請開始填寫上方欄位）</pre>
+      <div class="toolbar">
+        <button id="copy-btn">📋 複製到剪貼簿</button>
+        <button id="download-json-btn">💾 下載 JSON</button>
+        <button id="download-txt-btn">📝 下載 TXT</button>
+        <button id="save-draft-btn">📥 儲存草稿到本機</button>
+        <button id="load-draft-btn">📤 讀取最近草稿</button>
+        <button id="reset-btn" class="danger">🗑️ 清空</button>
+      </div>
+      <p class="hint">草稿使用瀏覽器 localStorage，不會上傳到雲端。</p>
+    </section>
+  </main>
+
+  <template id="section-tpl">
+    <div class="section-card">
+      <div class="section-head">
+        <label>區域
+          <select class="section-area"></select>
+        </label>
+        <label class="grow">工項描述（♦️之後的文字）
+          <input type="text" class="section-topic" placeholder="如：1樓地坪水電配管" />
+        </label>
+        <button class="remove-btn" title="刪除此區段">✕</button>
+      </div>
+      <div class="items"></div>
+      <button class="add-btn small add-item-btn">+ 新增工項（🔹）</button>
+    </div>
+  </template>
+
+  <template id="item-tpl">
+    <div class="item-row">
+      <select class="item-kind">
+        <option value="labor">人力</option>
+        <option value="equipment">機具</option>
+        <option value="material">材料</option>
+      </select>
+      <select class="item-category"></select>
+      <input type="text" class="item-category-custom" placeholder="或自訂工種" />
+      <input type="number" class="item-count" step="0.5" min="0" placeholder="數量" />
+      <select class="item-unit"></select>
+      <input type="text" class="item-detail" placeholder="細節 (放括號內)" />
+      <button class="remove-btn" title="刪除">✕</button>
+    </div>
+  </template>
+
+  <template id="note-tpl">
+    <div class="note-row">
+      <input type="text" class="note-text" placeholder="備註內容" />
+      <button class="remove-btn" title="刪除">✕</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
