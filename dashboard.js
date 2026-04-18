@@ -269,7 +269,8 @@ function renderTable() {
     const wd = r.date ? WD[(new Date(r.date).getDay()+6) % 7] : '';
     const summary = (r.sections || []).map(s =>
       `${s.area || ''}${(s.topic || '').slice(0, 18)}`).join(' · ');
-    return `<tr>
+    const id = r.report_id ?? -1;
+    return `<tr data-id="${id}">
       <td>${r.date || ''}</td>
       <td>${wd}</td>
       <td>${r.reporter || ''}</td>
@@ -277,6 +278,43 @@ function renderTable() {
       <td>${(r.sections || []).length}</td>
       <td>${labor || ''}</td>
       <td class="summary">${summary}</td>
+      <td class="row-actions">
+        <button class="icon-btn edit" title="編輯" data-act="edit" data-id="${id}">✏️</button>
+        <button class="icon-btn delete" title="刪除" data-act="delete" data-id="${id}">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 }
+
+// ─── Row actions (edit/delete) ───
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button.icon-btn');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.act === 'edit') {
+    location.href = `index.html?edit=${id}`;
+    return;
+  }
+  if (btn.dataset.act === 'delete') {
+    const row = RAW.find(r => r.report_id === id);
+    if (!row) return alert('找不到該筆資料');
+    if (!GH.getCfg().token) {
+      alert('請先到日報輸入頁 ⚙️ 設定 GitHub Token 才能刪除。');
+      return;
+    }
+    if (!confirm(`確定刪除 #${id}（${row.date} · ${row.reporter}）？\n此動作會直接 commit 到 GitHub。`)) return;
+    btn.disabled = true; btn.textContent = '⏳';
+    try {
+      const newArr = await GH.commit(
+        (remote) => remote.filter(r => r.report_id !== id),
+        `Delete report #${id}: ${row.date} · ${row.reporter}`
+      );
+      RAW = newArr;
+      renderAll();
+      alert(`✓ 已刪除。遠端 Actions 會在 30–60 秒內重新部署。`);
+    } catch (err) {
+      alert('✗ 刪除失敗：' + err.message);
+      btn.disabled = false; btn.textContent = '🗑️';
+    }
+  }
+});

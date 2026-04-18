@@ -270,18 +270,10 @@ function flash(sel, msg) {
 }
 
 // ─── GitHub sync ───
-const CFG_KEY = 'report-builder:github-cfg';
-const DEFAULT_CFG = { repo: 'thinklab-architects/daily-reporter', branch: 'main', path: 'data.json', token: '' };
+let editingId = null;  // if not null, we're editing that report_id (replace instead of append)
 
-function getCfg() {
-  const saved = localStorage.getItem(CFG_KEY);
-  return { ...DEFAULT_CFG, ...(saved ? JSON.parse(saved) : {}) };
-}
-function setCfg(cfg) { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
-
-// Read current cfg into modal inputs
 function loadCfgIntoModal() {
-  const c = getCfg();
+  const c = GH.getCfg();
   $('#cfg-repo').value = c.repo;
   $('#cfg-branch').value = c.branch;
   $('#cfg-path').value = c.path;
@@ -289,9 +281,9 @@ function loadCfgIntoModal() {
 }
 function readCfgFromModal() {
   return {
-    repo: $('#cfg-repo').value.trim() || DEFAULT_CFG.repo,
-    branch: $('#cfg-branch').value.trim() || DEFAULT_CFG.branch,
-    path: $('#cfg-path').value.trim() || DEFAULT_CFG.path,
+    repo: $('#cfg-repo').value.trim() || GH.DEFAULT_CFG.repo,
+    branch: $('#cfg-branch').value.trim() || GH.DEFAULT_CFG.branch,
+    path: $('#cfg-path').value.trim() || GH.DEFAULT_CFG.path,
     token: $('#cfg-token').value.trim(),
   };
 }
@@ -350,60 +342,19 @@ function validateForSubmit() {
   return null;
 }
 
-// ─── GitHub API helpers ───
-async function ghGet(cfg) {
-  const url = `https://api.github.com/repos/${cfg.repo}/contents/${cfg.path}?ref=${cfg.branch}`;
-  const r = await fetch(url, {
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${cfg.token}`,
-    },
-  });
-  if (!r.ok) throw new Error(`GET failed: ${r.status} ${r.statusText}`);
-  return r.json();                          // { content, sha, encoding, ... }
-}
-async function ghPut(cfg, contentB64, sha, message) {
-  const url = `https://api.github.com/repos/${cfg.repo}/contents/${cfg.path}`;
-  const r = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${cfg.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      message, content: contentB64, sha, branch: cfg.branch,
-    }),
-  });
-  if (!r.ok) throw new Error(`PUT failed: ${r.status} ${r.statusText} ${await r.text()}`);
-  return r.json();
-}
-
-// base64 encode UTF-8 string (btoa is Latin-1 only, so we encode first)
-function utf8ToB64(s) {
-  const bytes = new TextEncoder().encode(s);
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary);
-}
-function b64ToUtf8(b) {
-  const binary = atob(b.replace(/\s/g, ''));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
-}
-
 async function testConnection() {
   const cfg = readCfgFromModal();
   if (!cfg.token) return setCfgStatus('請先填入 Token', 'error');
+  // Write to localStorage temporarily so GH.fetchRemote() uses this cfg
+  const prev = GH.getCfg();
+  GH.setCfg(cfg);
   setCfgStatus('測試中…');
   try {
-    const file = await ghGet(cfg);
-    const txt = b64ToUtf8(file.content);
-    const arr = JSON.parse(txt);
-    if (!Array.isArray(arr)) throw new Error('遠端檔案不是 JSON 陣列');
-    setCfgStatus(`✓ 連線成功，遠端有 ${arr.length} 筆資料。`, 'ok');
+    const { data } = await GH.fetchRemote();
+    if (!Array.isArray(data)) throw new Error('遠端檔案不是 JSON 陣列');
+    setCfgStatus(`✓ 連線成功，遠端有 ${data.length} 筆資料。`, 'ok');
   } catch (e) {
+    GH.setCfg(prev);
     setCfgStatus(`✗ ${e.message}`, 'error');
   }
 }
@@ -422,34 +373,78 @@ function setSyncStatus(msg, type = '') {
 async function submitToGitHub() {
   const err = validateForSubmit();
   if (err) return setSyncStatus('✗ ' + err, 'error');
-  const cfg = getCfg();
-  if (!cfg.token) {
+  if (!GH.getCfg().token) {
     setSyncStatus('✗ 尚未設定 GitHub Token', 'error');
     openSettings();
     return;
   }
-  if (!confirm('確定要送出此日報到 GitHub？\n遠端 data.json 會追加一筆新紀錄。')) return;
+  const isEdit = editingId !== null;
+  const confirmMsg = isEdit
+    ? `確定要更新 #${editingId} 這筆日報嗎？`
+    : '確定要送出此日報到 GitHub？\n遠端 data.json 會追加一筆新紀錄。';
+  if (!confirm(confirmMsg)) return;
+
   setSyncStatus('送出中…正在抓取遠端最新版本');
   try {
-    const file = await ghGet(cfg);
-    const remote = JSON.parse(b64ToUtf8(file.content));
-    const nextId = remote.length ? Math.max(...remote.map(r => r.report_id ?? -1)) + 1 : 0;
-    const entry = buildStructuredEntry(nextId);
-
-    // Duplicate check: same date + reporter
-    const dup = remote.find(r => r.date === entry.date && r.reporter === entry.reporter);
-    if (dup && !confirm(`警告：${entry.date} 已有 ${entry.reporter} 的日報（#${dup.report_id}）。\n仍要新增為第二筆嗎？`)) {
-      setSyncStatus('已取消', '');
-      return;
+    const entry = buildStructuredEntry(0);  // id will be reassigned
+    const msg = isEdit
+      ? `Update report: ${entry.date} · ${entry.reporter}`
+      : `Add report: ${entry.date} · ${entry.reporter}`;
+    await GH.commit(async (remote) => {
+      if (isEdit) {
+        const idx = remote.findIndex(r => r.report_id === editingId);
+        if (idx < 0) throw new Error(`找不到 report_id=${editingId}，可能已被他人刪除`);
+        entry.report_id = editingId;
+        remote[idx] = entry;
+      } else {
+        const dup = remote.find(r => r.date === entry.date && r.reporter === entry.reporter);
+        if (dup && !confirm(`警告：${entry.date} 已有 ${entry.reporter} 的日報（#${dup.report_id}）。\n仍要新增為第二筆嗎？`)) {
+          throw new Error('已取消');
+        }
+        remote.push(entry);
+      }
+      return remote;
+    }, msg);
+    setSyncStatus(`✓ 已${isEdit ? '更新' : '送出'} — 約 30–60 秒後重新部署完成。`, 'ok');
+    if (isEdit) {
+      // Go back to dashboard
+      setTimeout(() => { location.href = 'dashboard.html'; }, 1500);
     }
+  } catch (e) {
+    if (e.message === '已取消') setSyncStatus('已取消', '');
+    else setSyncStatus('✗ ' + e.message, 'error');
+  }
+}
 
-    remote.push(entry);
-    remote.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const newTxt = JSON.stringify(remote, null, 2);
-    setSyncStatus('送出中…正在 commit');
-    const msg = `Add report: ${entry.date} · ${entry.reporter}`;
-    await ghPut(cfg, utf8ToB64(newTxt), file.sha, msg);
-    setSyncStatus(`✓ 已送出（#${entry.report_id}）— 約 30-60 秒後重新部署完成，dashboard 會看到新資料。`, 'ok');
+// ─── Edit-mode loader ───
+async function loadForEdit(id) {
+  setSyncStatus(`載入 #${id} 中…`);
+  try {
+    const { data } = await GH.fetchRemote();
+    const entry = data.find(r => r.report_id === id);
+    if (!entry) throw new Error(`找不到 report_id=${id}`);
+    editingId = id;
+    // Convert structured entry → builder form shape and populate
+    loadFrom({
+      date: entry.date,
+      reporter: entry.reporter,
+      weather: entry.weather,
+      sections: (entry.sections || []).map(s => ({
+        area: s.area,
+        topic: s.topic,
+        items: (s.items || []).map(it => ({
+          kind: it.kind || 'labor',
+          category: it.category,
+          count: it.count,
+          unit: it.unit,
+          detail: it.detail,
+        })),
+      })),
+      notes: entry.notes || [],
+    });
+    $('#submit-btn').textContent = `💾 更新 #${id} 到 GitHub`;
+    document.querySelector('header h1').textContent = `✏️ 編輯日報 #${id}`;
+    setSyncStatus(`✓ 已載入 #${id}，修改後按「更新」送出。`, 'ok');
   } catch (e) {
     setSyncStatus('✗ ' + e.message, 'error');
   }
@@ -470,13 +465,13 @@ function initGitHubSync() {
     if (e.target.id === 'settings-modal') closeSettings();
   });
   $('#cfg-save').addEventListener('click', () => {
-    setCfg(readCfgFromModal());
+    GH.setCfg(readCfgFromModal());
     setCfgStatus('✓ 已儲存', 'ok');
   });
   $('#cfg-test').addEventListener('click', testConnection);
   $('#cfg-clear').addEventListener('click', () => {
     if (!confirm('確定清除儲存的 Token？')) return;
-    localStorage.removeItem(CFG_KEY);
+    GH.clearCfg();
     loadCfgIntoModal();
     setCfgStatus('已清除', '');
   });
@@ -484,4 +479,10 @@ function initGitHubSync() {
 }
 
 // ─── Startup ───
-loadVocab().then(() => { initToolbar(); initGitHubSync(); });
+loadVocab().then(() => {
+  initToolbar();
+  initGitHubSync();
+  // Check for ?edit=N
+  const editId = new URLSearchParams(location.search).get('edit');
+  if (editId !== null) loadForEdit(Number(editId));
+});
