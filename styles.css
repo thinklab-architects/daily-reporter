@@ -158,6 +158,23 @@ td.row-actions {
   display: flex;
   gap: 0.25rem;
 }
+
+tr.expandable { cursor: pointer; }
+tr.expandable.expanded { background: #eef4ff; }
+tr.detail-row td.detail-cell {
+  background: #fbfcff;
+  padding: 1rem 1.25rem;
+  white-space: normal;
+}
+.detail-wrap { display: grid; gap: 0.75rem; }
+.detail-section strong { color: var(--accent); }
+.detail-section ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.25rem;
+  line-height: 1.8;
+}
+.detail-section li.muted,
+.detail-wrap p.muted { color: var(--muted); list-style: none; padding: 0; }
 button.icon-btn {
   background: transparent;
   border: 1px solid transparent;

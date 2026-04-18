@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>工程日報列表</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="dashboard">
+  <header>
+    <div class="header-left">
+      <h1>📋 工程日報列表</h1>
+      <p class="subtitle" id="subtitle">載入資料中…</p>
+    </div>
+    <nav class="header-nav">
+      <a href="index.html" class="nav-btn" title="返回日報輸入">
+        <span class="nav-emoji">📝</span>
+        <span>日報輸入</span>
+      </a>
+      <a href="dashboard.html" class="nav-btn" title="統計儀表板">
+        <span class="nav-emoji">📊</span>
+        <span>統計儀表板</span>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>篩選條件</h2>
+      <div class="row">
+        <label>起日 <input type="date" id="f-start" /></label>
+        <label>迄日 <input type="date" id="f-end" /></label>
+        <label>區域
+          <select id="f-area"><option value="">全部</option></select>
+        </label>
+        <label>回報者
+          <select id="f-reporter"><option value="">全部</option></select>
+        </label>
+        <label>天氣
+          <select id="f-weather"><option value="">全部</option></select>
+        </label>
+        <label class="grow">關鍵字
+          <input type="text" id="search" placeholder="搜尋工項 / 備註 / 區域" />
+        </label>
+        <button id="f-reset">清除篩選</button>
+      </div>
+      <p class="hint" id="count-hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>日報列表（點擊展開完整內容）</h2>
+      <div class="table-wrap">
+        <table id="reports-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>日期</th>
+              <th>星期</th>
+              <th>回報者</th>
+              <th>天氣</th>
+              <th>區段數</th>
+              <th>人日</th>
+              <th>機具</th>
+              <th>摘要</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="github-sync.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>
