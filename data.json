@@ -28084,34 +28084,5 @@
       }
     ],
     "notes": []
-  },
-  {
-    "report_id": 383,
-    "date": "2026-04-19",
-    "date_end": null,
-    "reporter": "簡聖峻",
-    "weather": "🌤️🌤️",
-    "raw_text": "2026-04-19（日）🌤️🌤️\n♦️北棟測試\n🔹板模師傅*1人",
-    "sections": [
-      {
-        "seq": 0,
-        "area": "北棟",
-        "topic": "測試",
-        "header_raw": "♦️北棟測試",
-        "items": [
-          {
-            "category": "板模師傅",
-            "count": 1,
-            "unit": "人",
-            "location": null,
-            "detail": null,
-            "kind": "labor",
-            "raw": "🔹板模師傅*1人",
-            "seq": 0
-          }
-        ]
-      }
-    ],
-    "notes": []
   }
 ]
