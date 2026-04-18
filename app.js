@@ -1,4 +1,4 @@
-// 工程日報產生器 — vanilla JS, 無 build step
+// 一灣苑工程日報產生器 — vanilla JS, 無 build step
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const WEEKDAYS = ['一','二','三','四','五','六','日']; // Mon..Sun
