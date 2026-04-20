@@ -257,22 +257,6 @@ function flash(sel, msg) {
 // ─── GitHub sync ───
 let editingId = null;  // if not null, we're editing that report_id (replace instead of append)
 
-function loadCfgIntoModal() {
-  const c = GH.getCfg();
-  $('#cfg-repo').value = c.repo;
-  $('#cfg-branch').value = c.branch;
-  $('#cfg-path').value = c.path;
-  $('#cfg-token').value = c.token;
-}
-function readCfgFromModal() {
-  return {
-    repo: $('#cfg-repo').value.trim() || GH.DEFAULT_CFG.repo,
-    branch: $('#cfg-branch').value.trim() || GH.DEFAULT_CFG.branch,
-    path: $('#cfg-path').value.trim() || GH.DEFAULT_CFG.path,
-    token: $('#cfg-token').value.trim(),
-  };
-}
-
 // Classify trade kind (mirror of Python classify_kind in parse_structure.py)
 function classifyKind(category) {
   if (!category) return 'other';
@@ -327,28 +311,6 @@ function validateForSubmit() {
   return null;
 }
 
-async function testConnection() {
-  const cfg = readCfgFromModal();
-  if (!cfg.token) return setCfgStatus('請先填入 Token', 'error');
-  // Write to localStorage temporarily so GH.fetchRemote() uses this cfg
-  const prev = GH.getCfg();
-  GH.setCfg(cfg);
-  setCfgStatus('測試中…');
-  try {
-    const { data } = await GH.fetchRemote();
-    if (!Array.isArray(data)) throw new Error('遠端檔案不是 JSON 陣列');
-    setCfgStatus(`✓ 連線成功，遠端有 ${data.length} 筆資料。`, 'ok');
-  } catch (e) {
-    GH.setCfg(prev);
-    setCfgStatus(`✗ ${e.message}`, 'error');
-  }
-}
-
-function setCfgStatus(msg, type = '') {
-  const el = $('#cfg-status');
-  el.textContent = msg;
-  el.className = 'hint ' + type;
-}
 function setSyncStatus(msg, type = '') {
   const el = $('#sync-status');
   el.textContent = msg;
@@ -360,7 +322,7 @@ async function submitToGitHub() {
   if (err) return setSyncStatus('✗ ' + err, 'error');
   if (!GH.getCfg().token) {
     setSyncStatus('✗ 尚未設定 GitHub Token', 'error');
-    openSettings();
+    SettingsModal.open();
     return;
   }
   const isEdit = editingId !== null;
@@ -435,31 +397,7 @@ async function loadForEdit(id) {
   }
 }
 
-// ─── Settings modal ───
-function openSettings() {
-  loadCfgIntoModal();
-  setCfgStatus('');
-  $('#settings-modal').classList.remove('hidden');
-}
-function closeSettings() { $('#settings-modal').classList.add('hidden'); }
-
 function initGitHubSync() {
-  $('#open-settings').addEventListener('click', openSettings);
-  $('#cfg-close').addEventListener('click', closeSettings);
-  $('#settings-modal').addEventListener('click', e => {
-    if (e.target.id === 'settings-modal') closeSettings();
-  });
-  $('#cfg-save').addEventListener('click', () => {
-    GH.setCfg(readCfgFromModal());
-    setCfgStatus('✓ 已儲存', 'ok');
-  });
-  $('#cfg-test').addEventListener('click', testConnection);
-  $('#cfg-clear').addEventListener('click', () => {
-    if (!confirm('確定清除儲存的 Token？')) return;
-    GH.clearCfg();
-    loadCfgIntoModal();
-    setCfgStatus('已清除', '');
-  });
   $('#submit-btn').addEventListener('click', submitToGitHub);
 }
 

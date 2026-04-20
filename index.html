@@ -106,40 +106,6 @@
     </div>
   </template>
 
-  <!-- Settings modal -->
-  <div id="settings-modal" class="modal-backdrop hidden">
-    <div class="modal">
-      <h2>⚙️ GitHub 連線設定</h2>
-      <p class="hint">
-        送出日報時會直接 commit 到 repo 的 <code>data.json</code>，GitHub Actions 會自動重新部署。<br>
-        Token 只儲存在你的瀏覽器 localStorage，不會上傳到任何伺服器。
-      </p>
-      <label>Owner / Repo
-        <input type="text" id="cfg-repo" placeholder="thinklab-architects/daily-reporter" />
-      </label>
-      <label>Branch
-        <input type="text" id="cfg-branch" placeholder="main" />
-      </label>
-      <label>檔案路徑
-        <input type="text" id="cfg-path" placeholder="data.json" />
-      </label>
-      <label>Personal Access Token
-        <input type="password" id="cfg-token" placeholder="github_pat_..." autocomplete="new-password" />
-      </label>
-      <p class="hint">
-        建議用 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">fine-grained token</a>，
-        權限只給此 repo 的 <code>Contents: Read and Write</code>。
-      </p>
-      <div class="toolbar">
-        <button id="cfg-test">🔍 測試連線</button>
-        <button id="cfg-save" class="primary-cta">💾 儲存設定</button>
-        <button id="cfg-clear" class="danger">🗑️ 清除</button>
-        <button id="cfg-close">關閉</button>
-      </div>
-      <p id="cfg-status" class="hint"></p>
-    </div>
-  </div>
-
   <template id="note-tpl">
     <div class="note-row">
       <input type="text" class="note-text" placeholder="備註內容" />
@@ -148,6 +114,7 @@
   </template>
 
   <script src="github-sync.js"></script>
+  <script src="settings-modal.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
